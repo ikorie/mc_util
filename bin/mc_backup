@@ -1,0 +1,76 @@
+#!/bin/bash
+
+SERVER="$1"
+
+if [[ -z "$SERVER" ]]; then
+    echo "BLANK"
+    exit 1
+fi
+
+MCS_DIR="${HOME:?HOME is not set}/mcserver"
+BACKUP_DIR="${HOME:?HOME is not set}/var/backup"
+MONTHLY_DIR="${BACKUP_DIR}/monthly"
+LOG="${BACKUP_DIR}/backup.log"
+
+D=$(date '+%Y%m%d_%H%M%S')
+ZIPFILE="${BACKUP_DIR}/${SERVER}.${D}.zip"
+LD="[$(date '+%Y-%m-%d %H:%M:%S')]"
+
+echo "$LD [INFO]: backup process start." >> "$LOG"
+
+# バックアップ
+zip -r "$ZIPFILE" \
+    "${MCS_DIR}/${SERVER}/world" \
+    "${MCS_DIR}/${SERVER}/world_nether" \
+    "${MCS_DIR}/${SERVER}/world_the_end"
+
+STATUS=$?
+
+if [[ $STATUS -ne 0 ]]; then
+    LD="[$(date '+%Y-%m-%d %H:%M:%S')]"
+    echo "$LD [ERROR]: failed to backup $SERVER ${ZIPFILE}" >> "$LOG"
+
+    # 作成途中のZIPが残っていたら削除
+    rm -f "$ZIPFILE"
+
+    exit 1
+fi
+
+LD="[$(date '+%Y-%m-%d %H:%M:%S')]"
+echo "$LD [INFO]: backup has been completed. file='${ZIPFILE}'" >> "$LOG"
+
+
+# 月末判定
+TOMORROW=$(date -d 'tomorrow' '+%d')
+
+if [[ "$TOMORROW" == "01" ]]; then
+
+    mkdir -p "$MONTHLY_DIR"
+
+    mv "$ZIPFILE" "$MONTHLY_DIR/"
+
+    LD="[$(date '+%Y-%m-%d %H:%M:%S')]"
+    echo "$LD [INFO]: monthly backup moved. file='${MONTHLY_DIR}/$(basename "$ZIPFILE")'" >> "$LOG"
+
+    # monthlyは12か月分だけ残す
+    find "$MONTHLY_DIR" \
+        -maxdepth 1 \
+        -type f \
+        -name "${SERVER}.*.zip" \
+        -mtime +365 \
+        -delete
+
+else
+
+    # 通常バックアップは3日より古いものを削除
+    find "$BACKUP_DIR" \
+        -maxdepth 1 \
+        -type f \
+        -name "${SERVER}.*.zip" \
+        -mtime +3 \
+        -delete
+
+fi
+
+exit 0
+

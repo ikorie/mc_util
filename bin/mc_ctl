@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+# mincraft_server start/stop script
+#
+#$1 start/stop/status/command
+#$2 target
+# mincraft_server.jar 実行ユーザ
+VERSION=1.2
+SERVERNAME="$2"
+COMMAND="$1"
+MC_COMMAND="$3"
+
+#USERNAME=''
+ME=`whoami`
+#if [ $ME != $USERNAME ]; then
+#  echo "Please run the $USERNAME user."
+#  exit
+#fi
+
+
+# メモリ
+### for 2G Instance
+#XMS='1536M'
+#XMX='1536M'
+### for 4G Instance
+XMS='3584M'
+XMX='3584M'
+
+SERVER_DIR="${HOME}/mcserver/$SERVERNAME"
+
+#if [ x$1 -eq "x" ]; then
+#    if [ x$2 -eq "x" ]; then
+#        echo "VERSION $VERSION";
+#	echo "usage: mc_ctl SERVERNAME COMMAND [and servercmd]";
+#    fi
+#fi
+
+if [[ ! -e "$SERVER_DIR" ]];then
+    echo "server '$SERVERNAME' is not exists."
+    exit 1
+fi
+ 
+# screen名
+SCNAME="$SERVERNAME"
+# minecraft_serverディレクトリ
+MC_PATH="$SERVER_DIR"
+# 実行するminecraft_server.jar
+SERVICE="$SERVERNAME.jar"
+ 
+ 
+cd $MC_PATH
+ 
+start() {
+#  if pgrep -u $USERNAME -f $SERVICE > /dev/null; then
+  if pgrep -f $SERVICE > /dev/null; then
+    echo "$SERVICE is already running!"
+    exit
+  fi
+  echo "Starting $SERVICE..."
+  screen -AmdS $SCNAME java -Xmx$XMX -Xms$XMS -jar $SERVICE nogui
+}
+ 
+stop() {
+#  if pgrep -u $USERNAME -f $SERVICE > /dev/null; then
+  if pgrep -f $SERVICE > /dev/null; then
+    echo "Stopping $SERVICE"
+    screen -p 0 -S $SCNAME -X eval 'stuff "say SERVER SHUTTING DOWN IN 10 SECONDS. Saving map..."\015'
+    screen -p 0 -S $SCNAME -X eval 'stuff "save-all"\015'
+    sleep 10
+    screen -p 0 -S $SCNAME -X eval 'stuff "stop"\015'
+    sleep 10
+    echo "Stopped minecraftserver"
+    exit
+  else
+    echo "$SERVICE is not running!"
+    exit
+  fi
+  screen -p 0 -S $SCNAME -X eval 'stuff "say SERVER SHUTTING DOWN IN 10 SECONDS. "\015'
+  sleep 10
+  screen -p 0 -S $SCNAME -X eval 'stuff "exit"\015'
+}
+ 
+status() {
+#  if pgrep -u $USERNAME -f $SERVICE > /dev/null; then
+  if pgrep -f $SERVICE > /dev/null; then
+    echo "$SERVICE is already running!"
+    exit
+  else
+    echo "$SERVICE is not running!"
+    exit
+  fi
+}
+
+command() {
+  mc_command=$1
+  screen -p 0 -S "$SCNAME" -X stuff "$mc_command"$'\r'
+  echo "send mcserver command '$mc_command'."
+}
+ 
+case "$COMMAND" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  status)
+    status
+    ;;
+  command)
+    command "$MC_COMMAND"
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|status|command} <server> [mccommand]"
+esac
